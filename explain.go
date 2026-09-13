@@ -90,6 +90,81 @@ func withDefault(params, def string) string {
 	return params
 }
 
+// decPrivateModeNames covers the DEC private modes set/reset with CSI ?h
+// and CSI ?l - the ones actually seen in the wild (alternate screen,
+// mouse reporting, bracketed paste) rather than the full DEC catalogue.
+var decPrivateModeNames = map[int]string{
+	1:    "DECCKM: cursor keys send application sequences",
+	2:    "DECANM: VT52 mode",
+	3:    "DECCOLM: 132 column mode",
+	4:    "DECSCLM: smooth scroll",
+	5:    "DECSCNM: reverse video",
+	6:    "DECOM: origin mode",
+	7:    "DECAWM: auto-wrap mode",
+	8:    "DECARM: auto-repeat keys",
+	9:    "X10 mouse reporting",
+	12:   "cursor blinking",
+	25:   "DECTCEM: cursor visible",
+	47:   "use alternate screen buffer",
+	1000: "VT200 mouse reporting (button press/release)",
+	1002: "button-event mouse reporting (with drag)",
+	1003: "any-event mouse reporting",
+	1004: "focus reporting",
+	1005: "UTF-8 mouse mode",
+	1006: "SGR mouse mode",
+	1015: "urxvt mouse mode",
+	1047: "use alternate screen buffer, clear on exit",
+	1048: "save/restore cursor position",
+	1049: "save cursor and use alternate screen buffer, clear on exit",
+	2004: "bracketed paste mode",
+}
+
+// ansiModeNames covers the (non-DEC) standard modes settable with plain
+// CSI h / CSI l, without a leading '?'. There aren't many of these in
+// practical use, so the table is small on purpose.
+var ansiModeNames = map[int]string{
+	2:  "KAM: keyboard action mode",
+	4:  "IRM: insert/replace mode",
+	12: "SRM: send/receive (local echo) mode",
+	20: "LNM: automatic newline mode",
+}
+
+// explainMode describes the parameters of a CSI h/l sequence. A leading
+// '?' marks a DEC private mode rather than a standard ANSI one, and the
+// two have separate, non-overlapping numbering, so they need separate
+// tables.
+func explainMode(params string) string {
+	private := strings.HasPrefix(params, "?")
+	body := params
+	if private {
+		body = params[1:]
+	}
+	if body == "" {
+		return "no parameter given"
+	}
+	table := ansiModeNames
+	kind := "mode"
+	if private {
+		table = decPrivateModeNames
+		kind = "DEC private mode"
+	}
+	parts := strings.Split(body, ";")
+	names := make([]string, 0, len(parts))
+	for _, p := range parts {
+		n, err := strconv.Atoi(p)
+		if err != nil {
+			names = append(names, fmt.Sprintf("invalid parameter %q", p))
+			continue
+		}
+		if name, ok := table[n]; ok {
+			names = append(names, name)
+		} else {
+			names = append(names, fmt.Sprintf("unknown %s %d", kind, n))
+		}
+	}
+	return strings.Join(names, ", ")
+}
+
 func explainCSI(final byte, params string) string {
 	switch final {
 	case 'A':
@@ -125,9 +200,9 @@ func explainCSI(final byte, params string) string {
 	case 'u':
 		return "CSI u  restore cursor position"
 	case 'h':
-		return fmt.Sprintf("CSI %s%c  set mode %s", params, final, params)
+		return fmt.Sprintf("CSI %s%c  set mode: %s", params, final, explainMode(params))
 	case 'l':
-		return fmt.Sprintf("CSI %s%c  reset mode %s", params, final, params)
+		return fmt.Sprintf("CSI %s%c  reset mode: %s", params, final, explainMode(params))
 	default:
 		return fmt.Sprintf("CSI %s%c  unknown final byte 0x%02X (not in lookup table)", params, final, final)
 	}

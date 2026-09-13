@@ -54,7 +54,9 @@ actually read, rather than sitting under invisible bytes.
 
 - CSI sequences (`ESC [ ... final`): cursor movement, erase in
   display/line, SGR (colors and text attributes), save/restore cursor,
-  device status reports, mode set/reset.
+  device status reports, mode set/reset including named DEC private
+  modes (alternate screen buffer, mouse reporting, bracketed paste, and
+  so on).
 - OSC sequences (`ESC ] ... BEL` or `ESC ] ... ESC \`): window/icon
   title, working directory reporting, hyperlinks, clipboard, by number.
 - The common two-byte ESC sequences: save/restore cursor, keypad mode,
