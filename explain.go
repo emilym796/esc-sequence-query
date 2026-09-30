@@ -232,6 +232,63 @@ func explainSGR(params string) string {
 	return strings.Join(descs, ", ")
 }
 
+// explainOSCPalette describes the argument of OSC 4, which is a list of
+// index;spec pairs. A spec of "?" asks the terminal to report the entry
+// instead of changing it, so the two cases read differently.
+func explainOSCPalette(args string) string {
+	if args == "" {
+		return "palette entry: no parameters given"
+	}
+	parts := strings.Split(args, ";")
+	if len(parts)%2 != 0 {
+		return fmt.Sprintf("palette entry: index %q has no color spec", parts[len(parts)-1])
+	}
+	descs := make([]string, 0, len(parts)/2)
+	for i := 0; i < len(parts); i += 2 {
+		idx, err := strconv.Atoi(parts[i])
+		if err != nil || idx < 0 || idx > 255 {
+			descs = append(descs, fmt.Sprintf("invalid palette index %q", parts[i]))
+			continue
+		}
+		if parts[i+1] == "?" {
+			descs = append(descs, fmt.Sprintf("query palette entry %d", idx))
+		} else {
+			descs = append(descs, fmt.Sprintf("set palette entry %d to %s", idx, parts[i+1]))
+		}
+	}
+	return strings.Join(descs, ", ")
+}
+
+// explainOSCHyperlink describes the argument of OSC 8, "params;URI". The
+// URI is everything after the first semicolon, since URIs may contain
+// semicolons themselves. An empty URI ends the current link.
+func explainOSCHyperlink(args string) string {
+	i := strings.IndexByte(args, ';')
+	if i < 0 {
+		return "hyperlink: missing ';' between parameters and URI"
+	}
+	params, uri := args[:i], args[i+1:]
+	if uri == "" {
+		return "end hyperlink"
+	}
+	desc := fmt.Sprintf("start hyperlink to %q", uri)
+	if params == "" {
+		return desc
+	}
+	var opts []string
+	for _, kv := range strings.Split(params, ":") {
+		k, v, ok := strings.Cut(kv, "=")
+		if !ok {
+			opts = append(opts, fmt.Sprintf("malformed parameter %q", kv))
+		} else if k == "id" {
+			opts = append(opts, fmt.Sprintf("id %q", v))
+		} else {
+			opts = append(opts, fmt.Sprintf("%s=%s", k, v))
+		}
+	}
+	return desc + " (" + strings.Join(opts, ", ") + ")"
+}
+
 func explainOSC(body string) string {
 	code := body
 	rest := ""
@@ -247,11 +304,11 @@ func explainOSC(body string) string {
 	case "2":
 		return fmt.Sprintf("set window title to %q", rest)
 	case "4":
-		return fmt.Sprintf("set or query a color palette entry (%s)", rest)
+		return explainOSCPalette(rest)
 	case "7":
 		return fmt.Sprintf("report current working directory as %q", rest)
 	case "8":
-		return "hyperlink"
+		return explainOSCHyperlink(rest)
 	case "52":
 		return "clipboard operation"
 	default:

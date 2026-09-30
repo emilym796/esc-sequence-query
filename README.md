@@ -58,7 +58,10 @@ actually read, rather than sitting under invisible bytes.
   modes (alternate screen buffer, mouse reporting, bracketed paste, and
   so on).
 - OSC sequences (`ESC ] ... BEL` or `ESC ] ... ESC \`): window/icon
-  title, working directory reporting, hyperlinks, clipboard, by number.
+  title, working directory reporting, clipboard, by number. Palette
+  changes and queries (OSC 4) are listed per entry, and hyperlinks
+  (OSC 8) show the target URI, any `id=` parameter, or that the link
+  ended.
 - The common two-byte ESC sequences: save/restore cursor, keypad mode,
   reset, index/reverse-index, next line, tab stop.
 
